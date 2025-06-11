@@ -39,7 +39,7 @@
 
        FD  F-OUTPUT.
 
-           01 REC-F-OUTPUT        PIC X(80).
+       01 REC-F-OUTPUT        PIC X(80).
     
       ******************************************************************
            
@@ -51,13 +51,13 @@
            88 F-INPUT-STATUS-EOF            VALUE "10".
 
       *Structure avec tableau dynamique pour les mails valides.
-       01  VALID-USER.
-           05 USER-V-LGHT         PIC 9(03).
-           05 USER-V OCCURS 1 TO 999 TIMES DEPENDING ON USER-V-LGHT
-                                           INDEXED   BY USER-V-IDX.
-                10 USER-V-ID      PIC X(10).
-                10 USER-V-NAME    PIC X(50).
-                10 USER-V-EMAIL   PIC X(50).
+       01  DATA-USER.
+           05 USER-LGHT         PIC 9(03).
+           05 USER OCCURS 1 TO 999 TIMES DEPENDING ON USER-LGHT
+                                         INDEXED   BY USER-IDX.
+                10 USER-ID      PIC X(10).
+                10 USER-NAME    PIC X(50).
+                10 USER-EMAIL   PIC X(50).
 
       *Structure avec tableau dynamique pour les mails invalides.
        01  INVALID-USER.
@@ -79,7 +79,8 @@
            05 OUT-ID              PIC X(10).
            05 FILLER              PIC X(01) VALUE "]".
            05 FILLER              PIC X(10) VALUE " Erreur : ".
-           05 FILLER              PIC X(15) VALUE "Email invalide ".
+           05 FILLER              PIC X(24) 
+                                   VALUE "Email ou Index invalide ".
            05 OUT-EMAIL           PIC X(50).
 
       ******************************************************************
@@ -90,6 +91,10 @@
       *Paragraphe gerant la lecture du fichier d'entree.
            PERFORM 0100-F-INPUT-START
            THRU    0100-F-INPUT-END.
+    
+      *Paragraphe pour vérifier le mail.
+           PERFORM 0300-TEST-MAIL-START
+           THRU    0300-TEST-MAIL-END.
 
       *Paragraphe gerant l'ecriture du fichier de sortie.
            PERFORM 0200-F-OUTPUT-START
@@ -113,23 +118,10 @@
               AT END
                DISPLAY "Fin de lecture de fichier."
               NOT AT END
-               DISPLAY "Test Email utilisateur."
-      *Appel du sous programme pour tester si présence "@".
-               CALL "validate" USING USER-RECORD
-      *Si mail correct on bouge dans la structure VALID-USER.
-                IF RETURN-CODE = 0
-                 ADD  1               TO USER-V-LGHT
-                 MOVE ID-USER         TO USER-V-ID   (USER-V-LGHT)
-                 MOVE NOM             TO USER-V-NAME (USER-V-LGHT)
-                 MOVE EMAIL           TO USER-V-EMAIL(USER-V-LGHT)
-                ELSE
-      *Si mail incorrect on bouge dans la structure INVALID-USER.
-                 DISPLAY "Erreur dans le mail n° " ID-USER
-                 ADD  1               TO USER-I-LGHT
-                 MOVE ID-USER         TO USER-I-ID   (USER-I-LGHT)
-                 MOVE NOM             TO USER-I-NAME (USER-I-LGHT)
-                 MOVE EMAIL           TO USER-I-EMAIL(USER-I-LGHT)
-                END-IF
+                  ADD  1               TO USER-LGHT
+                  MOVE ID-USER         TO USER-ID   (USER-LGHT)
+                  MOVE NOM             TO USER-NAME (USER-LGHT)
+                  MOVE EMAIL           TO USER-EMAIL(USER-LGHT)
              END-READ
            END-PERFORM.
 
@@ -161,3 +153,25 @@
 
            EXIT.
        0200-F-OUTPUT-END.
+
+      ******************************************************************
+
+       0300-TEST-MAIL-START.
+           
+           PERFORM VARYING USER-IDX FROM 1 BY 1
+                                       UNTIL USER-IDX > USER-LGHT
+      *Appel du sous programme pour tester si présence "@".
+             CALL "validate" USING USER-ID(USER-IDX) 
+                                   USER-EMAIL(USER-IDX)
+             DISPLAY "Test utilisateur."
+      *Si mail incorrect on bouge dans la structure INVALID-USER.
+             IF RETURN-CODE = 1
+               DISPLAY "Erreur sur la ligne n° " USER-ID(USER-IDX)
+               ADD  1                    TO USER-I-LGHT
+               MOVE USER-ID(USER-IDX)    TO USER-I-ID   (USER-I-LGHT)
+               MOVE USER-NAME(USER-IDX)  TO USER-I-NAME (USER-I-LGHT)
+               MOVE USER-EMAIL(USER-IDX) TO USER-I-EMAIL(USER-I-LGHT)
+             END-IF
+           END-PERFORM.
+           EXIT.
+       0300-TEST-MAIL-END.
