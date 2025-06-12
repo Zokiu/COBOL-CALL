@@ -1,0 +1,1 @@
+CREATE DATABASE user_db OWNER zokiu;
